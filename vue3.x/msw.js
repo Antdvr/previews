@@ -7,8 +7,8 @@
  * - Please do NOT modify this file.
  */
 
-const PACKAGE_VERSION = '2.10.4'
-const INTEGRITY_CHECKSUM = 'f5825c521429caf22a4dd13b66e243af'
+const PACKAGE_VERSION = '2.11.2'
+const INTEGRITY_CHECKSUM = '4db4a41e972cec1b64cc569c66952d82'
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
 const activeClientIds = new Set()
 
@@ -99,6 +99,7 @@ addEventListener('fetch', async function (event) {
   const _request = request.clone()
   const requester = request.headers.get('x-msw-requester')
   const requestId = crypto.randomUUID()
+  const requestAt = Date.now()
 
   if (!requester) {
     return
@@ -150,7 +151,7 @@ addEventListener('fetch', async function (event) {
     }
 
     if (activeClientIds.has(clientId)) {
-      return handleRequest(event, requestId)
+      return handleRequest(event, requestId, requestAt)
     }
 
     return passthrough()
@@ -181,9 +182,9 @@ async function resolveMainClient(event) {
     .find((client) => activeClientIds.has(client.id))
 }
 
-async function handleRequest(event, requestId) {
+async function handleRequest(event, requestId, interceptedAt) {
   const client = await resolveMainClient(event)
-  const response = await getResponse(event, client, requestId)
+  const response = await getResponse(event, client, requestId, interceptedAt)
 
   if (client && activeClientIds.has(client.id)) {
     const request = event.request
@@ -217,7 +218,7 @@ async function handleRequest(event, requestId) {
   return response
 }
 
-async function getResponse(event, client, requestId) {
+async function getResponse(event, client, requestId, interceptedAt) {
   const request = event.request
   const requestClone = request.clone()
 
@@ -246,6 +247,7 @@ async function getResponse(event, client, requestId) {
       type: 'REQUEST',
       payload: {
         id: requestId,
+        interceptedAt: interceptedAt,
         ...serializedRequest,
       },
     },
